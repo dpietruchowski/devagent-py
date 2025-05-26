@@ -1,4 +1,4 @@
-from agents import Agent
+from lib.agents import Agent
 from openai import OpenAI
 import os, subprocess
 
