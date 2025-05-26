@@ -3,6 +3,7 @@ from openai import OpenAI
 import os, subprocess
 
 from lib.dev_agent import developer
+from lib.git_agent import giter
 
 client = OpenAI()
 
@@ -12,6 +13,11 @@ def main():
     while True:
         try:
             user_input = input("> ")
+
+            if user_input == "commit":
+                response = giter.request(client, user_input)
+                print("< " + response)
+                continue
 
             if user_input == "switch_model":
                 developer.model = "gpt-4o-mini" if developer.model == "gpt-4o" else "gpt-4o"
