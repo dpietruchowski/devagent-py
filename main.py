@@ -13,6 +13,11 @@ def main():
         try:
             user_input = input("> ")
 
+            if user_input == "switch_model":
+                developer.model = "gpt-4o-mini" if developer.model == "gpt-4o" else "gpt-4o"
+                print("Will use model:", developer.model)
+                continue
+
             response = developer.request(client, user_input)
             print()
             print("< " + response)
