@@ -1,14 +1,18 @@
 from lib.agents import Agent
-from openai import OpenAI
 import os, subprocess
 
-from lib.dev_agent import developer
+from lib.dev_agent import developer, client
 from lib.git_agent import giter
-
-client = OpenAI()
+from lib.memory import memory
 
 def main():
     print("Will use model:", developer.model)
+
+    # user_input = input("> ")
+    # response = tag_generator_agent.request(client, user_input)
+    # print("< " + response)
+
+    # return
 
     while True:
         try:
@@ -27,7 +31,7 @@ def main():
             response = developer.request(client, user_input)
             print()
             print("< " + response)
-            developer.clear()
+            # developer.clear()
 
         except (KeyboardInterrupt, EOFError):
             # Przerwij pętlę, gdy Ctrl+C lub Ctrl+D

@@ -1,5 +1,11 @@
 from lib.agents import Agent
+from openai import OpenAI
+from lib.memory import memory
+from lib.mem_agent import memory_builder_agent
 import os, subprocess
+import ast
+
+client = OpenAI()
 
 def get_file_content(file_path):
     """
@@ -11,7 +17,10 @@ def get_file_content(file_path):
     """
     print('get_file_content', file_path)
     with open(file_path, 'r') as file:
-        return file.read()
+        content = file.read()
+        if not memory.has_file_info(file_path):
+            memory_builder_agent.request(client, f'File path: {file_path}, content: {content}')
+        return content
 
 def set_file_content(file_path, content):
     """
@@ -76,19 +85,63 @@ def get_file_tree(directory):
     print(file_tree)
     return file_tree
 
+tag_generator_agent = Agent(
+    name="TagGenerator",
+    model="gpt-4o-mini",
+    system_prompt="""
+    You are a tagging assistant for a memory system used in software development.
+
+    Your task:
+    Given a natural language prompt from a developer, return a list of 1 to 5 relevant lowercase tags.
+
+    Rules:
+    - Only output a valid Python list of strings.
+    - Tags must be lowercase and concise (e.g. "database", "login", "http", "file", "parser").
+    - Do not explain or include any extra text.
+    - Do not include duplicates or empty tags.
+    """
+)
+
+def query_memory(prompt: str):
+    """
+    Converts a natural language prompt into a list of tags using a tag generation agent,
+    then queries the memory database for files and functions matching those tags.
+
+    :param prompt: A natural language query describing what the developer is looking for.
+
+    :return: A list of dictionaries containing file paths, tags, and matching functions.
+            Returns an empty list if tag extraction fails or the response is invalid.
+    """
+
+    response = tag_generator_agent.request(client, prompt)
+
+    try:
+        tags = ast.literal_eval(response)
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            return []
+    except:
+        return []
+
+    return memory.query_by_tags(tags)
+
 
 developer = Agent(
     name="Agent 007", 
     model="gpt-4o-mini", 
     system_prompt="""
-    You are cpp developer. Use directory "src".
+    You are a C++ developer. Use directory "src".
+
     Steps:
-    1. Check directory structure
-    2. Find proper file to modify
-    3. Use get_file_content to get content
-    4. Modify the content.
-    5. Use set_file_content to update file
-    Remember to not use comments in code
+    1. When you need to find where something is implemented, first use query_memory with a natural language prompt.
+    2. If query_memory does not return useful results, then use get_file_tree to inspect the directory structure.
+    3. Find the appropriate file to modify.
+    4. Use get_file_content to read the file content.
+    5. Modify the content as needed.
+    6. Use set_file_content to update the file.
+
+    Important rules:
+    - Use query_memory before get_file_tree to reduce overhead.
+    - Do not use comments in code.
     """,
-    tools=[get_file_content, set_file_content, get_file_tree]
+    tools=[get_file_content, set_file_content, query_memory, get_file_tree]
 )
