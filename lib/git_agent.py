@@ -6,7 +6,7 @@ def get_git_diff():
     Retrieves the Git diff for the current directory.
     Shows the changes that have been made but not yet committed.
     """
-    result = subprocess.run(['git', 'diff'], capture_output=True, text=True)
+    result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True)
     print(result.stdout)
     return result.stdout
 

@@ -127,6 +127,13 @@ class Agent:
         self.handle_tool_calls_count = 0
 
         return self.create_completion(client)
+    
+    def get_user_assistant_messages(self):
+        return [
+            {'role': msg['role'], 'content': msg['content']}
+            for msg in self.messages
+            if msg.get('role') in {'user', 'assistant'} and msg.get('content')
+        ]
 
     def create_completion(self, client):
         if self.tools_dict:
@@ -146,7 +153,7 @@ class Agent:
 
         if completion.choices[0].finish_reason == "tool_calls":
             print("Model made a tool call.")
-            self.messages.append(completion.choices[0].message)
+            self.messages.append(completion.choices[0].message.dict())
             return self.handle_tool_calls(client, completion.choices[0].message.tool_calls)
 
         response = completion.choices[0].message.content
@@ -158,6 +165,11 @@ class Agent:
         self.messages = [
             {"role": "system", "content": self.system_prompt}
         ]
+
+    def soft_reset(self):
+        user_assistans_messages = self.get_user_assistant_messages()
+        self.clear()
+        self.messages.extend(user_assistans_messages)
     
     def handle_tool_calls(self, client, tool_calls):
         if self.handle_tool_calls_count > self.max_handle_tool_calls:

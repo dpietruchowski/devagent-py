@@ -70,8 +70,11 @@ def get_file_tree(directory):
     """
     file_tree = {os.path.basename(directory): {}}
     root_dict = file_tree[os.path.basename(directory)]
+    exclude_dirs = [".git"]
     
     for root, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
         current_dir = root_dict
         relative_path = os.path.relpath(root, directory)
         
@@ -132,8 +135,7 @@ developer = Agent(
     You are a C++ developer. Use directory "src".
 
     Steps:
-    1. When you need to find where something is implemented, first use query_memory with a natural language prompt.
-    2. If query_memory does not return useful results, then use get_file_tree to inspect the directory structure.
+    2. use get_file_tree to inspect the directory structure.
     3. Find the appropriate file to modify.
     4. Use get_file_content to read the file content.
     5. Modify the content as needed.
@@ -143,5 +145,5 @@ developer = Agent(
     - Use query_memory before get_file_tree to reduce overhead.
     - Do not use comments in code.
     """,
-    tools=[get_file_content, set_file_content, query_memory, get_file_tree]
+    tools=[get_file_content, set_file_content, get_file_tree]
 )
