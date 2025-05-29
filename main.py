@@ -51,7 +51,8 @@ def set_conversation(conversation_text: str):
 
     :param conversation_text: The full text of the conversation to be saved.
     """
-    with open("conversation.txt", "w", encoding="utf-8") as f:
+    os.makedirs("data", exist_ok=True)
+    with open("data/conversation.txt", "w", encoding="utf-8") as f:
         f.write(conversation_text)
     print("Conversation saved to conversation.txt")
 
