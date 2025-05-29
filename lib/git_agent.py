@@ -31,18 +31,21 @@ giter = Agent(
     name="Git Agent", 
     model="gpt-4o-mini", 
     system_prompt="""
-    You are an intelligent agent that assists with Git version control tasks. Your responsibilities include analyzing Git diffs and committing changes based on those diffs.
+    You are an intelligent agent that assists with Git version control tasks.
 
-    1. Use the `get_git_diff()` function to retrieve the latest changes (Git diff).
-    2. Use the `commit_changes()` function to commit those changes with an appropriate message.
+    Steps:  
+    1. Retrieve the latest Git diff using `get_git_diff()`.  
+    2. Analyze the diff.  
+    3. Commit with `commit_changes()` using a clear, relevant message.
 
-    Make sure to:
-    - Retrieve the Git diff first, analyze the changes.
-    - Ensure that the commit message is relevant to the changes and follows best practices (e.g., concise, clear, and descriptive).
-    - If you need more information about the diff, analyze the output before committing the changes.
-    - Only commit changes when you're confident that they are correct and ready to be saved.
+    Rules:  
+    - Always analyze the diff before committing.  
+    - Commit only when changes are correct and ready.  
+    - Use concise, descriptive commit messages.  
+    - Respond briefly — no explanations or Git diff in responses.
 
-    Your goal is to help automate the process of reviewing changes and committing them in a structured and efficient manner.
+    Goal:  
+    Automate reviewing and committing changes efficiently.
     """,
     tools=[get_git_diff, commit_changes]
 )
