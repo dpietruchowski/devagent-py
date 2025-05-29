@@ -54,7 +54,7 @@ def set_conversation(conversation_text: str):
     os.makedirs("data", exist_ok=True)
     with open("data/conversation.txt", "w", encoding="utf-8") as f:
         f.write(conversation_text)
-    print("Conversation saved to conversation.txt")
+    print("Conversation saved to conversation.json")
 
 def main():
     session = PromptSession(multiline=True)

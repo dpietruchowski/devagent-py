@@ -61,3 +61,4 @@ build*
 
 src/
 log/
+data/

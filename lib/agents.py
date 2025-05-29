@@ -3,8 +3,6 @@ import json
 import re
 import logging
 
-logging.basicConfig(level=logging.INFO)
-
 def parse_param_docstring(docstring):
     param_descriptions = {}
     param_pattern = re.compile(r":param (\w+): (.+)")
@@ -199,7 +197,7 @@ class Agent:
                 ret = function(**arguments)
             else:
                 self.log_error("Invalid arguments format received for the tool call.")
-
+            self.log_info(f"Call tool {tool_call.function.name} with arguments: {arguments}")
             self.messages.append({
                 "role": "tool",
                 "content": json.dumps(ret),
