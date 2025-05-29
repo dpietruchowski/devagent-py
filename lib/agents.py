@@ -1,19 +1,19 @@
 import inspect
 import json
 import re
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 def parse_param_docstring(docstring):
     param_descriptions = {}
-
     param_pattern = re.compile(r":param (\w+): (.+)")
-    
     for match in param_pattern.findall(docstring):
         param_name, description = match
         param_descriptions[param_name] = description.strip()
-
     return param_descriptions
 
-def parse_description_docstring(docstring):    
+def parse_description_docstring(docstring):
     lines = docstring.strip().splitlines()
     description_lines = []
     for line in lines:
@@ -21,7 +21,6 @@ def parse_description_docstring(docstring):
             break
         print(line)
         description_lines.append(line.strip())
-    
     return ' '.join(description_lines).strip()
 
 def python_type_to_string(python_type):
@@ -32,19 +31,15 @@ def python_type_to_string(python_type):
 def function_to_dict(fun):
     fun_name = fun.__name__
     fun_doc = fun.__doc__
-
     sig = inspect.signature(fun)
-
     parameters = {
         "type": "object",
         "required": [],
         "properties": {},
         "additionalProperties": False
     }
-    
     param_descriptions = parse_param_docstring(fun_doc)
     description = parse_description_docstring(fun_doc)
-    
     for param_name, param in sig.parameters.items():
         param_info = {
             "description": param_descriptions.get(param_name, f"No description provided for {param_name}"), 
@@ -55,9 +50,7 @@ def function_to_dict(fun):
             param_info["type"] = python_type_to_string(type_annotation)
         else:
             param_info["type"] = "string"
-            
         parameters["properties"][param_name] = param_info
-    
     output = {
         "type": "function",
         "function": {
@@ -106,11 +99,13 @@ class Agent:
 
     def __init__(self, name, model, system_prompt=None, system_prompt_file=None, tools = []):
         self.token_usage = 0
+        self.cached_token_usage = 0
         self.handle_tool_calls_count = 0
         self.name = name
         self.model = model
         self.tools = tools
         self.tools_dict = functions_to_dict(tools)
+        self.log_info(f"Initialized with model: {self.model}")
 
         if system_prompt is not None:
             self.system_prompt = system_prompt
@@ -122,12 +117,25 @@ class Agent:
 
         self.clear()
 
+    def log_info(self, message):
+        logging.info(f"[{self.name}] {message}")
+
+    def log_error(self, message):
+        logging.error(f"[{self.name}] {message}")
+
+    def log_warning(self, message):
+        logging.warning(f"[{self.name}] {message}")
+
+    def set_model(self, model):
+        self.model = model
+        self.log_info(f"Model set to: {self.model}")
+
     def request(self, client, message):
         self.messages.append({"role": "user", "content": message})
         self.handle_tool_calls_count = 0
-
+        self.log_info(f"User request: {message}")
         return self.create_completion(client)
-    
+
     def get_user_assistant_messages(self):
         return [
             {'role': msg['role'], 'content': msg['content']}
@@ -149,15 +157,17 @@ class Agent:
             )
 
         self.token_usage += completion.usage.total_tokens
-        print("###### Token usage:", completion.usage.total_tokens, self.token_usage, "########")
+        self.cached_token_usage += completion.usage.cached_tokens if 'cached_tokens' in completion.usage else 0
+        self.log_info(f"Token usage updated: {completion.usage.total_tokens}, Total tokens used: {self.token_usage}, Cached tokens: {self.cached_token_usage}")
 
         if completion.choices[0].finish_reason == "tool_calls":
-            print("Model made a tool call.")
+            self.log_info("The model has initiated a tool call.")
             self.messages.append(completion.choices[0].message.dict())
             return self.handle_tool_calls(client, completion.choices[0].message.tool_calls)
 
         response = completion.choices[0].message.content
         self.messages.append({"role": "assistant", "content": response})
+        self.log_info(f"Assistant response: {response}")
 
         return response
 
@@ -173,13 +183,13 @@ class Agent:
     
     def handle_tool_calls(self, client, tool_calls):
         if self.handle_tool_calls_count > self.max_handle_tool_calls:
-            print("Too many tool_calls count", self.handle_tool_calls_count)
+            self.log_error(f"Exceeded maximum tool calls limit: {self.handle_tool_calls_count}")
             return ""
 
         for tool_call in tool_calls:
             function = find_function_by_name(self.tools, tool_call.function.name)
             if not function:
-                print("Function not found.")
+                self.log_error("Tool call failed: Function not found.")
                 continue
 
             arguments = json.loads(tool_call.function.arguments)
@@ -188,7 +198,7 @@ class Agent:
             elif isinstance(arguments, dict):
                 ret = function(**arguments)
             else:
-                print("Invalid arguments format")
+                self.log_error("Invalid arguments format received for the tool call.")
 
             self.messages.append({
                 "role": "tool",

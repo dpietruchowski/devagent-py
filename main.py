@@ -11,6 +11,40 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.shortcuts import print_formatted_text
 from xml.sax.saxutils import escape
 
+import logging
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
+
+def init_global_log():
+    os.makedirs("log", exist_ok=True)
+    start_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = f"log/data_{start_time}.log"
+
+    handler = RotatingFileHandler(log_filename, maxBytes=1 * 1024 * 1024, backupCount=3)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+
+    for h in root_logger.handlers[:]:
+        root_logger.removeHandler(h)
+
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(handler)
+
+    def compress_old_logs():
+        import zipfile
+        import glob
+        log_files = glob.glob("log/data_*.log.*")
+        for filepath in log_files:
+            zip_path = filepath + ".zip"
+            if not os.path.exists(zip_path):
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    zipf.write(filepath, arcname=os.path.basename(filepath))
+                os.remove(filepath)
+
+    return compress_old_logs
+
 def set_conversation(conversation_text: str):
     """
     Saves the given conversation text to 'conversation.txt'.
@@ -23,6 +57,7 @@ def set_conversation(conversation_text: str):
 
 def main():
     session = PromptSession(multiline=True)
+    init_global_log()
     print("Will use model:", developer.model)
 
     while True:
@@ -36,7 +71,8 @@ def main():
                 continue
 
             if user_input.strip() == "switch_model":
-                developer.model = "gpt-4o-mini" if developer.model == "gpt-4o" else "gpt-4o"
+                new_model = "gpt-4o-mini" if developer.model == "gpt-4o" else "gpt-4o"
+                developer.set_model(new_model)
                 print("Will use model:", developer.model)
                 continue
 
@@ -44,8 +80,6 @@ def main():
             print()
             safe_response = escape(response)
             print(response)
-
-            print(developer.messages)
 
             set_conversation(json.dumps(developer.get_user_assistant_messages()))
 

@@ -6,6 +6,7 @@ def get_git_diff():
     Retrieves the Git diff for the current directory.
     Shows the changes that have been made but not yet committed.
     """
+    subprocess.run(['git', 'add', '.'], check=True)
     result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True)
     print(result.stdout)
     return result.stdout
@@ -24,11 +25,10 @@ def commit_changes(message):
     Stages all changes and commits them with the given message.
     Commits all modifications (including new, modified, or deleted files).
     """
-    subprocess.run(['git', 'add', '.'], check=True)
     subprocess.run(['git', 'commit', '-m', message], check=True)
 
 giter = Agent(
-    name="Agent 007", 
+    name="Git Agent", 
     model="gpt-4o-mini", 
     system_prompt="""
     You are an intelligent agent that assists with Git version control tasks. Your responsibilities include analyzing Git diffs and committing changes based on those diffs.
