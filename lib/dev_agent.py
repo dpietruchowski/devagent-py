@@ -70,7 +70,7 @@ def get_file_tree(directory):
     """
     file_tree = {os.path.basename(directory): {}}
     root_dict = file_tree[os.path.basename(directory)]
-    exclude_dirs = [".git"]
+    exclude_dirs = [".git", "__pycache__"]
     
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
@@ -130,7 +130,7 @@ def query_memory(prompt: str):
 
 developer = Agent(
     name="Agent 007", 
-    model="gpt-4o-mini", 
+    model="gpt-4o", 
     system_prompt="""
     You are a programming developer working in the "src" directory.
 
