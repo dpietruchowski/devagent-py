@@ -1,9 +1,8 @@
 from lib.agents.agents import Agent
 import os, subprocess, json
 
-from lib.agents.dev_agent import developer, client
+from lib.code_manager.dev_agent import developer, client
 from lib.agents.git_agent import giter
-from lib.agents.memory import memory
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
@@ -52,7 +51,7 @@ def set_conversation(conversation_text: str):
     :param conversation_text: The full text of the conversation to be saved.
     """
     os.makedirs("data", exist_ok=True)
-    with open("data/conversation.txt", "w", encoding="utf-8") as f:
+    with open("data/conversation.json", "w", encoding="utf-8") as f:
         f.write(conversation_text)
     print("Conversation saved to conversation.json")
 
@@ -82,9 +81,9 @@ def main():
             safe_response = escape(response)
             print(response)
 
-            set_conversation(json.dumps(developer.get_user_assistant_messages()))
+            set_conversation(json.dumps(developer.messages))
 
-            developer.soft_reset()
+            # developer.soft_reset()
 
         except (KeyboardInterrupt, EOFError):
             print("\nExiting chat.")

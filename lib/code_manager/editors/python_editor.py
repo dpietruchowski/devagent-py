@@ -1,5 +1,5 @@
 from typing import Type
-from parsers.python_parser import PythonParser
+from lib.code_manager.parsers.python_parser import PythonParser
 
 class PythonFileEditor:
     def __init__(self):
@@ -11,6 +11,10 @@ class PythonFileEditor:
         with open(filepath, "r", encoding="utf-8") as f:
             self.code = f.read()
         self.parse()
+
+    def save(self, filepath: str):
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(self.code)
 
     def parse(self):
         self.parser = PythonParser(self.code)
@@ -30,6 +34,11 @@ class PythonFileEditor:
         lines[start_line-1:end_line] = new_code.splitlines()
         self.code = "\n".join(lines)
         self.parse()
+
+    def get_code(self, handler) -> str:
+        lines = self.code.splitlines()
+        start, end = handler.get_start_line(), handler.get_end_line()
+        return "\n".join(lines[start - 1:end])
 
     def get_handlers_list(self, handler_cls: Type):
         return [h.name for h in self.handlers if isinstance(h, handler_cls)]
