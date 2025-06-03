@@ -1,7 +1,7 @@
-from lib.agents import Agent
+from .agents import Agent
 from openai import OpenAI
-from lib.memory import memory
-from lib.mem_agent import memory_builder_agent
+from .memory import memory
+from .mem_agent import memory_builder_agent
 import os, subprocess
 import ast
 

@@ -1,4 +1,4 @@
-from lib.agents import Agent
+from .agents import Agent
 import os, subprocess
 
 def get_git_diff():

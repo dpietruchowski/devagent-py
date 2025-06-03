@@ -1,9 +1,9 @@
-from lib.agents import Agent
+from lib.agents.agents import Agent
 import os, subprocess, json
 
-from lib.dev_agent import developer, client
-from lib.git_agent import giter
-from lib.memory import memory
+from lib.agents.dev_agent import developer, client
+from lib.agents.git_agent import giter
+from lib.agents.memory import memory
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout

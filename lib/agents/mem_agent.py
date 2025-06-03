@@ -1,5 +1,5 @@
-from lib.agents import Agent
-from lib.memory import memory
+from .agents import Agent
+from .memory import memory
 
 from typing import List, Dict
 
