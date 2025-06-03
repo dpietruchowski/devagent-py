@@ -129,33 +129,67 @@ def get_code_from_file(filename: str, node_type: str, name: str, class_name: str
 
     return editor.get_code(handler)
 
+def add_new_code(filename: str, node_type: str, name: str, new_code: str, class_name: str = None):
+    """
+    :param filename: Target Python file
+    :param node_type: One of 'classes', 'methods', 'fields', 'funcs', 'vars', 'imports'
+    :param name: Name of the new code object
+    :param new_code: Code to insert
+    :param class_name: Required if adding to a class (for 'methods' or 'fields')
+    :return: None
+    """
+    if not os.path.exists(filename):
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("")
+
+    editor = PythonFileEditor()
+    editor.load(filename)
+
+    if node_type == "classes":
+        editor.code += "\n\n" + new_code
+        editor.save(filename)
+        return
+
+    if node_type in {"methods", "fields"} and class_name:
+        class_handler = editor.get_handler(class_name, handler_map["classes"])
+        if class_handler:
+            original = class_handler.get_code()
+            updated = original.rstrip() + "\n\n" + new_code
+            editor.set_code_by_handler(class_handler, updated)
+            editor.save(filename)
+            return
+
+    editor.code += "\n\n" + new_code
+    editor.save(filename)
+
 developer = Agent(
     name="Agent 007", 
-    model="gpt-4o-mini", 
-    system_prompt="""
-    You are a programming developer working in the "src" directory.
+    model="gpt-4o", 
+    system_prompt = """
+    You are a programming developer working in the 'src' directory.
 
-    You will first receive the file tree of the project as the initial message.
+    Use only the provided tools to work with files:
+    - `get_file_tree()` to inspect the directory structure,
+    - `generate_code_summary_from_file(filename)` to get code structure summaries,
+    - `get_code_from_file(filename, node_type, name, class_name=None)` to read code fragments,
+    - `modify_code_in_file(filename, node_type, name, new_code)` to update existing code,
+    - `add_new_code(filename, node_type, name, new_code, class_name=None)` to insert new code (will create file if it doesn't exist).
 
-    Use only the provided tools to work with files:  
-    - `generate_code_summary_from_file(filename)` to get code structure summaries,  
-    - `get_code_from_file(filename, handler_type, name, class_name=None)` to read code fragments,  
-    - `modify_code_in_file(filename, handler_type, name, new_code)` to update code.
+    Steps:
+    1. Use `get_file_tree()` to view the full directory structure.
+    2. Select only the files that are relevant to the task.
+    3. Use `generate_code_summary_from_file` to analyze those selected files.
+    4. Use `get_code_from_file` to inspect specific code blocks if needed.
+    5. Use `modify_code_in_file` to edit existing code blocks.
+    6. Use `add_new_code` to insert new functions, classes, methods, fields, variables, or imports. It will create the file if it doesn't exist.
 
-    Steps:  
-    1. Analyze the file tree to locate relevant files.  
-    2. Use `generate_code_summary_from_file` to understand file contents.  
-    3. Use `get_code_from_file` to inspect specific code blocks.  
-    4. Modify code as needed using `modify_code_in_file`.  
-    5. Do not directly output code; only respond with brief summaries.
+    Rules:
+    - Never show code in responses to the user.
+    - Do not include comments in code changes.
+    - Keep responses short: one sentence summarizing the action.
 
-    Rules:  
-    - Never show code in responses to the user.  
-    - Do not include comments in code changes.  
-    - Keep responses concise: maximum one sentence summary of the action.
-
-    Goal:  
-    Efficiently locate, read, and update files using the provided tools.
+    Goal:
+    Efficiently locate, read, update, or insert code in source files using only the provided tools, analyzing only what is necessary.
     """,
-    tools=[generate_code_summary_from_file, modify_code_in_file, get_code_from_file]
+    tools=[get_file_tree, generate_code_summary_from_file, modify_code_in_file, get_code_from_file, add_new_code]
 )
