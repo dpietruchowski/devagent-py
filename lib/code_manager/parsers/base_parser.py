@@ -19,12 +19,14 @@ class BaseNodeHandler:
         return self.node.end_point[0] + 1
     
 class BaseParser:
-    def __init__(self, language, source_code: str):
+    def __init__(self, language):
+        self.parser = Parser(language)
+
+    def parse(self, source_code: str):
         if isinstance(source_code, bytes):
             self.code = source_code
         else:
             self.code = source_code.encode("utf-8")
-        self.parser = Parser(language)
         self.tree = self.parser.parse(self.code)
         self.root_node = self.tree.root_node
 

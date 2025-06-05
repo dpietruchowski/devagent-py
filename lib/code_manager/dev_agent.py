@@ -8,14 +8,17 @@ import os
 
 client = OpenAI()
 
-handler_map = {
-    "imports": PythonImportHandler,
-    "vars": PythonGlobalObjectHandler,
-    "funcs": PythonFunctionHandler,
-    "classes": PythonClassHandler,
-    "fields": PythonClassObjectHandler,
-    "methods": PythonMethodHandler,
+editor_registry = {
+    ".py": PythonFileEditor,
+    # ".cpp": (CppFileEditor, cpp_handler_map),
+    # ".h": (CppFileEditor, cpp_handler_map),
 }
+
+def get_editor_for_file(filename):
+    ext = os.path.splitext(filename)[1]
+    if ext not in editor_registry:
+        raise ValueError(f"Unsupported file extension: {ext}")
+    return editor_registry[ext]
 
 def get_file_tree(directory):
     """
@@ -54,24 +57,36 @@ def generate_code_summary_from_file(filename: str):
     :return: dict with keys 'imports', 'vars', 'funcs', 'classes'.
              'classes' maps class names to dicts with 'fields' and 'methods' lists.
     """
-    editor = PythonFileEditor()
+    editor_cls = get_editor_for_file(filename)
+    editor = editor_cls()
     editor.load(filename)
 
-    summary = {
-        "imports": editor.get_handlers_list(PythonImportHandler),
-        "vars": editor.get_handlers_list(PythonGlobalObjectHandler),
-        "funcs": editor.get_handlers_list(PythonFunctionHandler),
-        "classes": {}
-    }
+    handler_map = editor.get_handler_map()
+    summary = {}
+    
+    class_key = "classes"
+    fields_key = "fields"
+    methods_key = "methods"
 
-    class_names = editor.get_handlers_list(PythonClassHandler)
-    for cls_name in class_names:
-        fields = editor.get_class_members_list(cls_name, PythonClassObjectHandler)
-        methods = editor.get_class_members_list(cls_name, PythonMethodHandler)
-        summary["classes"][cls_name] = {
-            "fields": fields,
-            "methods": methods
-        }
+    for key, handler_cls in handler_map.items():
+        if key in {class_key, fields_key, methods_key}:
+            continue
+        summary[key] = editor.get_handlers_list(handler_cls)
+
+    if class_key in handler_map:
+        class_handler = handler_map[class_key]
+        class_names = editor.get_handlers_list(class_handler)
+        summary[class_key] = {}
+
+        for cls_name in class_names:
+            class_entry = {}
+
+            if fields_key in handler_map:
+                class_entry[fields_key] = editor.get_class_members_list(cls_name, handler_map[fields_key])
+            if methods_key in handler_map:
+                class_entry[methods_key] = editor.get_class_members_list(cls_name, handler_map[methods_key])
+
+            summary[class_key][cls_name] = class_entry
 
     return summary
 
@@ -86,8 +101,10 @@ def modify_code_in_file(filename: str, node_type: str, name: str, new_code: str,
     :param class_name: (optional) Name of the class if node is a class member.
     :return: None.
     """
-    editor = PythonFileEditor()
+    editor_cls = get_editor_for_file(filename)
+    editor = editor_cls()
     editor.load(filename)
+    handler_map = editor.get_handler_map()
     handler_cls = handler_map.get(node_type)
     if handler_cls is None:
         raise ValueError(f"Unknown node type '{node_type}'.")
@@ -113,8 +130,10 @@ def get_code_from_file(filename: str, node_type: str, name: str, class_name: str
     :param class_name: (optional) Name of the class if node is a class member.
     :return: Code string or None if not found.
     """
-    editor = PythonFileEditor()
+    editor_cls = get_editor_for_file(filename)
+    editor = editor_cls()
     editor.load(filename)
+    handler_map = editor.get_handler_map()
     handler_cls = handler_map.get(node_type)
     if handler_cls is None:
         raise ValueError(f"Unknown node type '{node_type}'.")
@@ -142,16 +161,24 @@ def add_new_code(filename: str, node_type: str, name: str, new_code: str, class_
         with open(filename, "w", encoding="utf-8") as f:
             f.write("")
 
-    editor = PythonFileEditor()
+    editor_cls = get_editor_for_file(filename)
+    editor = editor_cls()
     editor.load(filename)
 
-    if node_type == "classes":
+    handler_map = editor.get_handler_map()
+
+    class_key = "classes"
+    fields_key = "fields"
+    methods_key = "methods"
+
+    if node_type == class_key:
         editor.code += "\n\n" + new_code
         editor.save(filename)
         return
 
-    if node_type in {"methods", "fields"} and class_name:
-        class_handler = editor.get_handler(class_name, handler_map["classes"])
+    if node_type in {fields_key, methods_key} and class_name:
+        class_handler_cls = handler_map[class_key]
+        class_handler = editor.get_handler(class_name, class_handler_cls)
         if class_handler:
             original = class_handler.get_code()
             updated = original.rstrip() + "\n\n" + new_code
@@ -186,7 +213,9 @@ developer = Agent(
     Rules:
     - Never show code in responses to the user.
     - Do not include comments in code changes.
+    - Prefer modifying only the specific method or function instead of replacing entire classes.
     - Keep responses short: one sentence summarizing the action.
+    - Always check other files looking for types used in code if needed
 
     Goal:
     Efficiently locate, read, update, or insert code in source files using only the provided tools, analyzing only what is necessary.

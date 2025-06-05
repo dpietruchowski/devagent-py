@@ -5,8 +5,18 @@ from .base_parser import BaseNodeHandler, BaseParser
 PY_LANGUAGE = Language(tspython.language())
 
 class PythonParser(BaseParser):
-    def __init__(self, source_code: str):
-        super().__init__(PY_LANGUAGE, source_code)
+    def __init__(self):
+        super().__init__(PY_LANGUAGE)
+
+    def get_handler_map(self):
+        return {
+            "imports": PythonImportHandler,
+            "vars": PythonGlobalObjectHandler,
+            "funcs": PythonFunctionHandler,
+            "classes": PythonClassHandler,
+            "fields": PythonClassObjectHandler,
+            "methods": PythonMethodHandler,
+        }
 
     def get_functions(self):
         query = """

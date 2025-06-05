@@ -1,7 +1,7 @@
 from lib.agents.agents import Agent
 import os, subprocess, json
 
-from lib.code_manager.dev_agent import developer, client
+from lib.code_manager.dev_agent import developer, client, generate_code_summary_from_file
 from lib.agents.git_agent import giter
 
 from prompt_toolkit import PromptSession
@@ -64,6 +64,10 @@ def main():
         try:
             with patch_stdout():
                 user_input = session.prompt("> ")
+
+            if user_input.strip() == "summary":
+                print(json.dumps(generate_code_summary_from_file("src/tests/files/example.py"), indent=4))
+                continue
 
             if user_input.strip() == "commit":
                 response = giter.request(client, user_input)
