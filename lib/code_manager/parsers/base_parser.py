@@ -1,4 +1,5 @@
 from tree_sitter import Parser, Query
+import json, re
 
 class BaseNodeHandler:
     def __init__(self, node, code):
@@ -30,6 +31,40 @@ class BaseParser:
         self.tree = self.parser.parse(self.code)
         self.root_node = self.tree.root_node
 
+        with open("full_tree_output.scm", "w", encoding="utf-8") as f:
+            f.write(self.build_tree_string())
+
+
+    def build_tree_string(self, node=None, indent=0, max_text_length=80):
+        if node is None:
+            node = self.root_node
+
+        def _build(node, indent=0):
+            raw_text = self.code[node.start_byte:node.end_byte].decode("utf8").strip()
+            text = raw_text.replace("\n", " ").strip()
+            if len(text) > max_text_length:
+                text = text[:max_text_length] + "..."
+
+            indent_str = "  " * indent
+            line = f"{indent_str}({node.type} '{text}'"
+
+            if not node.children:
+                return line + ")\n"
+
+            line += "\n"
+            for i, child in enumerate(node.children):
+                field_name = node.field_name_for_child(i)
+                field_prefix = f"{field_name}: " if field_name else ""
+                child_text = _build(child, indent + 1)
+                # Insert field prefix after indentation
+                child_text = child_text.replace("  " * (indent + 1), "  " * (indent + 1) + field_prefix, 1)
+                line += child_text
+
+            line += indent_str + ")\n"
+            return line
+
+        return _build(node)
+
     def _extract_code(self, node):
         return self.code[node.start_byte:node.end_byte].decode("utf-8")
 
@@ -38,26 +73,6 @@ class BaseParser:
         if node:
             return query.matches(node)
         return query.matches(self.root_node)
-    
-    def print_node_tree_lines(self, node=None, indent=0, max_code_len=30):
-        if node is None:
-            node = self.root_node
-
-        prefix = "  " * indent
-        start_line = node.start_point[0] + 1
-        end_line = node.end_point[0] + 1
-
-        node_text = self.code[node.start_byte:node.end_byte].decode("utf-8").replace("\n", "\\n")
-        if len(node_text) > max_code_len:
-            node_text = node_text[:max_code_len] + "..."
-
-        print(f"{prefix}{node.type} [line {start_line} - {end_line}]: '{node_text}'")
-
-        for i, child in enumerate(node.children):
-            field_name = node.field_name_for_child(i)
-            if field_name:
-                print(f"{prefix}  (field: {field_name})")
-            self.print_node_tree_lines(child, indent + 2, max_code_len=max_code_len)
 
     def _extract_nodes(self, query, node=None, capture_keys=None):
         capture_keys = capture_keys or []

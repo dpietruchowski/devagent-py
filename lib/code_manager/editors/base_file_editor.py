@@ -43,20 +43,25 @@ class BaseFileEditor:
         return "\n".join(lines[start - 1:end])
 
     def get_handlers_list(self, handler_cls: Type):
-        return [h.name for h in self.handlers if isinstance(h, handler_cls)]
+        return [h.name for h in self.handlers if type(h) is handler_cls]
 
     def get_handler(self, name: str, handler_cls: Type):
         for handler in self.handlers:
-            if isinstance(handler, handler_cls) and handler.name == name:
+            if type(handler) is handler_cls and handler.name == name:
                 return handler
         return None
 
     def get_class_members_list(self, class_name: str, handler_cls: Type):
         return [h.name for h in self.handlers
-                if isinstance(h, handler_cls) and hasattr(h, 'get_class_name') and h.get_class_name() == class_name]
+                if type(h) is handler_cls 
+                and hasattr(h, 'get_class_name') 
+                and h.get_class_name() == class_name]
 
     def get_class_handler(self, class_name: str, name: str, handler_cls: Type):
         for handler in self.handlers:
-            if isinstance(handler, handler_cls) and handler.name == name and hasattr(handler, 'get_class_name') and handler.get_class_name() == class_name:
+            if (type(handler) is handler_cls 
+                and handler.name == name 
+                and hasattr(h, 'get_class_name') 
+                and handler.get_class_name() == class_name):
                 return handler
         return None

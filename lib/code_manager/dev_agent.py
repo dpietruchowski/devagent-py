@@ -2,6 +2,7 @@ from lib.agents.agents import Agent
 from openai import OpenAI
 
 from .editors.python_editor import PythonFileEditor
+from .editors.cpp_editor import CppFileEditor
 from .parsers.python_parser import *
 
 import os
@@ -10,8 +11,8 @@ client = OpenAI()
 
 editor_registry = {
     ".py": PythonFileEditor,
-    # ".cpp": (CppFileEditor, cpp_handler_map),
-    # ".h": (CppFileEditor, cpp_handler_map),
+    ".cpp": CppFileEditor,
+    ".h": CppFileEditor,
 }
 
 def get_editor_for_file(filename):

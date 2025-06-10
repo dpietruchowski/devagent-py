@@ -1,5 +1,3 @@
-from typing import Type
-
 from .base_file_editor import BaseFileEditor
 
 from lib.code_manager.parsers.python_parser import PythonParser
