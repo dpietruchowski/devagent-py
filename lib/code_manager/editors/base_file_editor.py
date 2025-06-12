@@ -1,12 +1,12 @@
-from typing import Type
+from typing import Type, Dict, Any
 
 class BaseFileEditor:
     def __init__(self, parser):
         self.code = ""
-        self.handlers = []
+        self.handlers = {}
         self.parser = parser
 
-    def get_handler_map(self):
+    def get_handler_map(self) -> Dict[str, Dict[str, Any]]:
         return self.parser.get_handler_map()
 
     def load(self, filepath: str):
@@ -20,20 +20,14 @@ class BaseFileEditor:
 
     def parse(self):
         self.parser.parse(self.code)
-        self.handlers = []
-        self.handlers.extend(self.parser.get_functions())
-        self.handlers.extend(self.parser.get_methods())
-        self.handlers.extend(self.parser.get_classes())
-        self.handlers.extend(self.parser.get_imports())
-        self.handlers.extend(self.parser.get_global_objects())
-        self.handlers.extend(self.parser.get_class_objects())
+        self.handlers = self.parser.parse_handlers()
 
-    def set_code_by_handler(self, handler, new_code):
+    def set_code_by_handler(self, handler, new_code: str):
         self.set_code(handler.get_start_line(), handler.get_end_line(), new_code)
 
-    def set_code(self, start_line, end_line, new_code):
+    def set_code(self, start_line: int, end_line: int, new_code: str):
         lines = self.code.splitlines()
-        lines[start_line-1:end_line] = new_code.splitlines()
+        lines[start_line - 1:end_line] = new_code.splitlines()
         self.code = "\n".join(lines)
         self.parse()
 
@@ -42,26 +36,31 @@ class BaseFileEditor:
         start, end = handler.get_start_line(), handler.get_end_line()
         return "\n".join(lines[start - 1:end])
 
-    def get_handlers_list(self, handler_cls: Type):
-        return [h.name for h in self.handlers if type(h) is handler_cls]
+    def get_handlers_list(self, category: str, class_name: str = None):
+        handlers = self.handlers.get(category, [])
+        if class_name:
+            return [h.name for h in handlers if h.class_name == class_name]
+        return [h.name for h in handlers]
 
-    def get_handler(self, name: str, handler_cls: Type):
-        for handler in self.handlers:
-            if type(handler) is handler_cls and handler.name == name:
-                return handler
+    def get_handler(self, name: str, category: str, class_name: str = None):
+        handlers = self.handlers.get(category, [])
+        if class_name:
+            for handler in handlers:
+                if handler.name == name and handler.class_name == class_name:
+                    return handler
+        else:
+            for handler in handlers:
+                if handler.name == name:
+                    return handler
         return None
 
-    def get_class_members_list(self, class_name: str, handler_cls: Type):
-        return [h.name for h in self.handlers
-                if type(h) is handler_cls 
-                and hasattr(h, 'get_class_name') 
-                and h.get_class_name() == class_name]
+    def get_class_members_list(self, class_name: str, member_type: str):
+        handlers = self.handlers.get(member_type, [])
+        return [h.name for h in handlers if h.class_name == class_name]
 
-    def get_class_handler(self, class_name: str, name: str, handler_cls: Type):
-        for handler in self.handlers:
-            if (type(handler) is handler_cls 
-                and handler.name == name 
-                and hasattr(h, 'get_class_name') 
-                and handler.get_class_name() == class_name):
-                return handler
+    def get_class_handler(self, class_name: str, name: str, member_type: str):
+        handlers = self.handlers.get(member_type, [])
+        for h in handlers:
+            if h.name == name and h.class_name == class_name:
+                return h
         return None

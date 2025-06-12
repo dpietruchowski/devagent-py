@@ -1,6 +1,6 @@
 from tree_sitter import Language
 import tree_sitter_python as tspython
-from .base_parser import BaseNodeHandler, BaseParser
+from .base_parser import BaseNodeHandler, BaseParser, register_handler
 
 PY_LANGUAGE = Language(tspython.language())
 
@@ -8,43 +8,46 @@ class PythonParser(BaseParser):
     def __init__(self):
         super().__init__(PY_LANGUAGE)
 
-    def get_handler_map(self):
-        return {
-            "imports": PythonImportHandler,
-            "vars": PythonGlobalObjectHandler,
-            "funcs": PythonFunctionHandler,
-            "classes": PythonClassHandler,
-            "fields": PythonClassObjectHandler,
-            "methods": PythonMethodHandler,
-        }
+class PythonParser(BaseParser):
+    def __init__(self):
+        super().__init__(PY_LANGUAGE)
 
+    @register_handler("imports")
+    def get_imports(self):
+        query = """
+        (import_statement) @def_node
+        (import_from_statement) @def_node
+        """
+        return self._extract_handlers(query, ['def_node'], PythonImportHandler)
+
+    @register_handler("vars")
+    def get_global_objects(self):
+        query = """
+        (module
+            (expression_statement
+                (assignment
+                    left: (identifier) @name_node
+                    right: (_) @value_node)) @def_node)
+        """
+        return self._extract_handlers(query, ['def_node', 'name_node'], PythonGlobalObjectHandler)
+
+    @register_handler("funcs")
     def get_functions(self):
         query = """
         (function_definition
             name: (identifier) @name_node) @def_node
         """
-        return self._get_handlers(query, ['def_node', 'name_node'], PythonFunctionHandler)
+        return self._extract_handlers(query, ['def_node', 'name_node'], PythonFunctionHandler)
 
-    def get_methods(self):
-        class_query = "(class_definition) @class_def"
-        methods = []
-        class_matches = self._run_query(class_query)
-        for _, captures in class_matches:
-            class_nodes = captures.get("class_def", [])
-            for class_node in class_nodes:
-                method_query = """
-                (function_definition
-                    name: (identifier) @name_node) @def_node
-                """
-                methods.extend(self._get_handlers(
-                    method_query,
-                    ['def_node', 'name_node'],
-                    PythonMethodHandler,
-                    node=class_node,
-                    extra_args={'class_node': class_node}
-                ))
-        return methods
-    
+    @register_handler("classes", class_level=True)
+    def get_classes(self):
+        query = """
+        (class_definition
+            name: (identifier) @name_node) @def_node
+        """
+        return self._extract_handlers(query, ['def_node', 'name_node'], PythonClassHandler)
+
+    @register_handler("fields", class_level=True)
     def get_class_objects(self):
         class_query = "(class_definition) @class_def"
         class_objects = []
@@ -62,7 +65,7 @@ class PythonParser(BaseParser):
                 )
                 )
                 """
-                class_objects.extend(self._get_handlers(
+                class_objects.extend(self._extract_handlers(
                     object_query,
                     ['def_node', 'name_node'],
                     PythonClassObjectHandler,
@@ -71,30 +74,26 @@ class PythonParser(BaseParser):
                 ))
         return class_objects
 
-
-    def get_classes(self):
-        query = """
-        (class_definition
-            name: (identifier) @name_node) @def_node
-        """
-        return self._get_handlers(query, ['def_node', 'name_node'], PythonClassHandler)
-
-    def get_imports(self):
-        query = """
-        (import_statement) @def_node
-        (import_from_statement) @def_node
-        """
-        return self._get_handlers(query, ['def_node'], PythonImportHandler)
-
-    def get_global_objects(self):
-        query = """
-        (module
-            (expression_statement
-                (assignment
-                    left: (identifier) @name_node
-                    right: (_) @value_node)) @def_node)
-        """
-        return self._get_handlers(query, ['def_node', 'name_node'], PythonGlobalObjectHandler)
+    @register_handler("methods", class_level=True)
+    def get_methods(self):
+        class_query = "(class_definition) @class_def"
+        methods = []
+        class_matches = self._run_query(class_query)
+        for _, captures in class_matches:
+            class_nodes = captures.get("class_def", [])
+            for class_node in class_nodes:
+                method_query = """
+                (function_definition
+                    name: (identifier) @name_node) @def_node
+                """
+                methods.extend(self._extract_handlers(
+                    method_query,
+                    ['def_node', 'name_node'],
+                    PythonMethodHandler,
+                    node=class_node,
+                    extra_args={'class_node': class_node}
+                ))
+        return methods
 
 
 class PythonFunctionHandler(BaseNodeHandler):

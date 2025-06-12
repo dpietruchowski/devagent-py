@@ -1,11 +1,23 @@
 from tree_sitter import Parser, Query
 import json, re
 
+def register_handler(name, class_level=False):
+    def decorator(func):
+        func._handler_meta = {
+            "name": name,
+            "class_level": class_level
+        }
+        return func
+    return decorator
+
+
 class BaseNodeHandler:
     def __init__(self, node, code):
         self.node = node
         self.code = code
         self.name = self._extract_name()
+        self.class_level = False
+        self.class_name = ""
 
     def _extract_name(self):
         return None
@@ -64,6 +76,47 @@ class BaseParser:
             return line
 
         return _build(node)
+    
+    def parse_handlers(self) -> dict:
+        result = {}
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
+            if callable(attr) and hasattr(attr, "_handler_meta"):
+                meta = attr._handler_meta
+                name = meta["name"]
+                class_level = meta.get("class_level", False)
+                handlers_obj = attr()
+                if isinstance(handlers_obj, list):
+                    for h in handlers_obj:
+                        h.class_level = class_level
+                else:
+                    handlers_obj.class_level = class_level
+                result[name] = handlers_obj
+        return result
+
+    def structure_by_class(self) -> dict:
+        raw = self.parse_handlers()
+        structured = {}
+
+        for category, handlers in raw.items():
+            if not handlers:
+                continue
+            class_level = handlers[0].class_level
+            if not class_level:
+                if category != "classes":
+                    structured[category] = [h.name for h in handlers]
+            else:
+                for h in handlers:
+                    class_name = getattr(h, "class_name", None)
+                    print(class_name)
+                    if not class_name:
+                        continue
+                    structured.setdefault("classes", {})
+                    structured["classes"].setdefault(class_name, {})
+                    structured["classes"][class_name].setdefault(category, [])
+                    structured["classes"][class_name][category].append(h.name)
+
+        return structured
 
     def _extract_code(self, node):
         return self.code[node.start_byte:node.end_byte].decode("utf-8")
@@ -84,7 +137,7 @@ class BaseParser:
                 results.append(extracted)
         return results
 
-    def _get_handlers(self, query, capture_keys, handler_class, node=None, extra_args=None):
+    def _extract_handlers(self, query, capture_keys, handler_class, node=None, extra_args=None):
         extra_args = extra_args or {}
         results = []
         extracted_nodes_list = self._extract_nodes(query, node=node, capture_keys=capture_keys)

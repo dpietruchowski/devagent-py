@@ -1,7 +1,7 @@
 from lib.agents.agents import Agent
 import os, subprocess, json
 
-from lib.code_manager.dev_agent import developer, client, generate_code_summary_from_file
+from lib.code_manager.dev_agent import developer, client, generate_code_summary_from_file, get_code_from_file, modify_code_in_file, add_new_code
 from lib.agents.git_agent import giter
 
 from prompt_toolkit import PromptSession
@@ -55,6 +55,16 @@ def set_conversation(conversation_text: str):
         f.write(conversation_text)
     print("Conversation saved to conversation.json")
 
+import tiktoken
+
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+    tokens = encoding.encode(text)
+    return len(tokens)
+
 def main():
     session = PromptSession(multiline=True)
     init_global_log()
@@ -66,7 +76,8 @@ def main():
                 user_input = session.prompt("> ")
 
             if user_input.strip() == "summary":
-                print(json.dumps(generate_code_summary_from_file("src/tests/files/example.py"), indent=4))
+                print(json.dumps(generate_code_summary_from_file("src/tests/files/example.h"), indent=4))
+                # print(json.dumps(generate_code_summary_from_file("src/tests/files/example.cpp"), indent=4))
                 continue
 
             if user_input.strip() == "commit":
