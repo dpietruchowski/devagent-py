@@ -39,8 +39,8 @@ class BaseFileEditor:
     def get_handlers_list(self, category: str, class_name: str = None):
         handlers = self.handlers.get(category, [])
         if class_name:
-            return [h.name for h in handlers if h.class_name == class_name]
-        return [h.name for h in handlers]
+            return [h for h in handlers if h.class_name == class_name]
+        return handlers
 
     def get_handler(self, name: str, category: str, class_name: str = None):
         handlers = self.handlers.get(category, [])

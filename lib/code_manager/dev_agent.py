@@ -62,7 +62,9 @@ def generate_code_summary_from_file(filename: str):
     editor = editor_cls()
     editor.load(filename)
     
-    return editor.parser.structure_by_class()
+    summary = editor.parser.structure_by_class()
+    print(summary)
+    return summary
 
 def modify_code_in_file(filename: str, category: str, name: str, new_code: str, class_name: str = None) -> None:
     """
@@ -120,10 +122,7 @@ def add_new_code(filename: str, category: str, name: str, new_code: str, class_n
     editor = editor_cls()
     editor.load(filename)
 
-    if class_name:
-        handlers = editor.handlers.get("classes", {}).get(class_name, {}).get(category, [])
-    else:
-        handlers = editor.handlers.get(category, [])
+    handlers = editor.get_handlers_list(category, class_name)
 
     if handlers:
         last_handler = max(handlers, key=lambda h: h.get_end_line())

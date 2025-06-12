@@ -43,7 +43,7 @@ class BaseParser:
         self.tree = self.parser.parse(self.code)
         self.root_node = self.tree.root_node
 
-        with open("full_tree_output.scm", "w", encoding="utf-8") as f:
+        with open("data/full_tree_output.scm", "w", encoding="utf-8") as f:
             f.write(self.build_tree_string())
 
 
