@@ -11,10 +11,6 @@ class CppParser(BaseParser):
     def __init__(self):
         super().__init__(CPP_LANGUAGE)
 
-class CppParser(BaseParser):
-    def __init__(self):
-        super().__init__(CPP_LANGUAGE)
-
     @register_handler("functions", class_level=False)
     def get_functions(self):
         query = """

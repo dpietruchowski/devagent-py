@@ -3,6 +3,7 @@ from openai import OpenAI
 
 from .editors.python_editor import PythonFileEditor
 from .editors.cpp_editor import CppFileEditor
+from .editors.cpp_source_editor import CppSourceFileEditor
 from .parsers.python_parser import *
 
 import os
@@ -11,7 +12,7 @@ client = OpenAI()
 
 editor_registry = {
     ".py": PythonFileEditor,
-    ".cpp": CppFileEditor,
+    ".cpp": CppSourceFileEditor,
     ".h": CppFileEditor,
 }
 

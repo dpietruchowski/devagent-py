@@ -108,7 +108,6 @@ class BaseParser:
             else:
                 for h in handlers:
                     class_name = getattr(h, "class_name", None)
-                    print(class_name)
                     if not class_name:
                         continue
                     structured.setdefault("classes", {})
