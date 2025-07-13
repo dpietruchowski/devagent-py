@@ -70,12 +70,6 @@ def main():
     init_global_log()
     print("Will use model:", developer.model)
 
-
-    print(json.dumps(generate_code_summary_from_file("src/tests/files/example.h"), indent=4))
-    print(json.dumps(generate_code_summary_from_file("src/tests/files/example.cpp"), indent=4))
-    # print(json.dumps(generate_code_summary_from_file("lib/code_manager/parsers/base_parser.py"), indent=4))
-    # return
-
     while True:
         try:
             with patch_stdout():

@@ -34,10 +34,9 @@ class CppParser(BaseParser):
         ) @class_node
         """
         property_query = """
-        (declaration
+        (field_declaration
             declarator: (function_declarator
-                declarator: (identifier) @name_node
-                parameters: (parameter_list)
+                declarator: (field_identifier) @name_node
             ) @def_node
         )
         """

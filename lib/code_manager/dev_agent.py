@@ -9,6 +9,7 @@ from .parsers.python_parser import *
 import os
 
 client = OpenAI()
+directory = ""
 
 editor_registry = {
     ".py": PythonFileEditor,
@@ -22,23 +23,19 @@ def get_editor_for_file(filename):
         raise ValueError(f"Unsupported file extension: {ext}")
     return editor_registry[ext]
 
-def get_file_tree(directory):
+def get_file_tree():
     """
-    Recursively gets the file tree of a given directory. This function should be called
-    when the model needs to explore the directory structure and gather information about
-    all the files and subdirectories. The function returns a nested dictionary of the
-    directory structure, with file contents for each file.
-
-    :param directory: The root directory path to get the file tree from.
+    Recursively gets the file tree of a given directory.
+    Returns a nested dictionary representing the directory structure,
+    where files have value None and directories have nested dicts.
     """
-    file_tree = {os.path.basename(directory): {}}
-    root_dict = file_tree[os.path.basename(directory)]
+    file_tree = {}
     exclude_dirs = [".git", "__pycache__"]
     
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
-        current_dir = root_dict
+        current_dir = file_tree
         relative_path = os.path.relpath(root, directory)
         
         if relative_path != ".":
@@ -59,9 +56,10 @@ def generate_code_summary_from_file(filename: str):
     :return: Dict with categories (e.g., imports, funcs, vars, classes) as keys.
              Class entries contain nested dicts with class-level categories and members.
     """
-    editor_cls = get_editor_for_file(filename)
+    full_path = os.path.join(directory, filename)
+    editor_cls = get_editor_for_file(full_path)
     editor = editor_cls()
-    editor.load(filename)
+    editor.load(full_path)
     
     summary = editor.parser.structure_by_class()
     print(summary)
@@ -78,9 +76,15 @@ def modify_code_in_file(filename: str, category: str, name: str, new_code: str, 
     :param class_name: (optional) Name of the class if the code block is a class member.
     :return: None.
     """
-    editor_cls = get_editor_for_file(filename)
+    full_path = os.path.join(directory, filename)
+
+    if not os.path.exists(full_path):
+        print(f"File does not exists {full_path}")
+        return
+
+    editor_cls = get_editor_for_file(full_path)
     editor = editor_cls()
-    editor.load(filename)
+    editor.load(full_path)
 
     handler = editor.get_handler(name, category, class_name)
 
@@ -88,7 +92,7 @@ def modify_code_in_file(filename: str, category: str, name: str, new_code: str, 
         raise ValueError(f"Handler '{name}' of category '{category}' not found in file.")
 
     editor.set_code_by_handler(handler, new_code)
-    editor.save(filename)
+    editor.save(full_path)
 
 def get_code_from_file(filename: str, category: str, name: str, class_name: str = None) -> str | None:
     """
@@ -100,9 +104,15 @@ def get_code_from_file(filename: str, category: str, name: str, class_name: str 
     :param class_name: Optional class name for class-level members.
     :return: Code block as string, or None if not found.
     """
-    editor_cls = get_editor_for_file(filename)
+    full_path = os.path.join(directory, filename)
+    
+    if not os.path.exists(full_path):
+        print(f"File does not exists {full_path}")
+        return
+    
+    editor_cls = get_editor_for_file(full_path)
     editor = editor_cls()
-    editor.load(filename)
+    editor.load(full_path)
 
     handler = editor.get_handler(name=name, category=category, class_name=class_name)
     if handler:
@@ -119,9 +129,15 @@ def add_new_code(filename: str, category: str, name: str, new_code: str, class_n
     :param new_code: Code to be inserted.
     :param class_name: Optional class name if the category is class-level.
     """
-    editor_cls = get_editor_for_file(filename)
+    full_path = os.path.join(directory, filename)
+    
+    if not os.path.exists(full_path):
+        print(f"File does not exists {full_path}")
+        return
+    
+    editor_cls = get_editor_for_file(full_path)
     editor = editor_cls()
-    editor.load(filename)
+    editor.load(full_path)
 
     handlers = editor.get_handlers_list(category, class_name)
 
@@ -136,20 +152,20 @@ def add_new_code(filename: str, category: str, name: str, new_code: str, class_n
     updated_lines = lines[:insert_line - 1] + new_code_lines + lines[insert_line - 1:]
     editor.code = "\n".join(updated_lines)
     editor.parse()
-    editor.save(filename)
+    editor.save(full_path)
 
 developer = Agent(
     name="Agent 007", 
     model="gpt-4o", 
     system_prompt = """
-You are a programming developer working in the 'src' directory.
+You are a programming developer.
 
 Use only the provided tools to work with files:
 - `get_file_tree()` to inspect the directory structure,
 - `generate_code_summary_from_file(filename)` to get code structure summaries,
 - `get_code_from_file(filename, node_type, name, class_name=None)` to read code fragments,
 - `modify_code_in_file(filename, node_type, name, new_code)` to update existing code,
-- `add_new_code(filename, node_type, name, new_code, class_name=None)` to insert new code (will create file if it doesn't exist).
+- `add_new_code(filename, node_type, name, new_code, class_name=None)` to insert new code (will create the file if it doesn't exist).
 
 Steps:
 1. Use `get_file_tree()` to view the full directory structure.
@@ -166,6 +182,7 @@ Rules:
 - Keep responses short: one sentence summarizing the action.
 - Always check other files looking for types used in code if needed.
 - When modifying code, preserve the original indentation and formatting style exactly; do not change the indentation level or alter how the new code is indented relative to the existing block.
+- When modifying a function or method, always include and submit its entire updated body, not just the changed lines.
 
 Goal:
 Efficiently locate, read, update, or insert code in source files using only the provided tools, analyzing only what is necessary.

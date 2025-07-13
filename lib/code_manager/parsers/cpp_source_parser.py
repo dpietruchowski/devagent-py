@@ -32,8 +32,8 @@ class CppSourceParser(BaseParser):
             declarator: (function_declarator
                 declarator: (identifier) @name_node
                 parameters: (parameter_list)
-            ) @def_node
-        )
+            )
+        )  @def_node
         """
         return self._extract_handlers(query, ['def_node', 'name_node'], CppFunctionHandler)
     
@@ -46,8 +46,8 @@ class CppSourceParser(BaseParser):
               scope: (namespace_identifier) @class_node
               name: (identifier) @name_node
             )
-          ) @def_node
-        )
+          )
+        ) @def_node
         """
         return self._extract_handlers(query, ['def_node', 'name_node', 'class_node'], CppMethodHandler)
     

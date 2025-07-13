@@ -22,8 +22,11 @@ class BaseNodeHandler:
     def _extract_name(self):
         return None
 
+    def _get_code(self, node):
+        return self.code[node.start_byte:node.end_byte].decode("utf-8")
+    
     def get_code(self):
-        return self.code[self.node.start_byte:self.node.end_byte].decode("utf-8")
+        return self._get_code(self.node)
 
     def get_start_line(self):
         return self.node.start_point[0] + 1
