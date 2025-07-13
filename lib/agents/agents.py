@@ -115,6 +115,9 @@ class Agent:
 
         self.clear()
 
+    def set_additional_system_prompt(self, prompt):
+        self.additional_system_prompt = prompt
+
     def log_info(self, message):
         logging.info(f"[{self.name}] {message}")
 
@@ -170,8 +173,12 @@ class Agent:
         return response
 
     def clear(self):
+        combined_prompt = self.system_prompt
+        if hasattr(self, 'additional_system_prompt') and self.additional_system_prompt:
+            combined_prompt += "\n" + self.additional_system_prompt
+
         self.messages = [
-            {"role": "system", "content": self.system_prompt}
+            {"role": "system", "content": combined_prompt}
         ]
 
     def soft_reset(self):

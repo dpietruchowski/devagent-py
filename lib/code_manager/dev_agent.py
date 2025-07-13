@@ -7,9 +7,10 @@ from .editors.cpp_source_editor import CppSourceFileEditor
 from .parsers.python_parser import *
 
 import os
+import json
 
 client = OpenAI()
-directory = ""
+directory = os.getenv("PROJECT_PATH", "")
 
 editor_registry = {
     ".py": PythonFileEditor,
@@ -22,6 +23,19 @@ def get_editor_for_file(filename):
     if ext not in editor_registry:
         raise ValueError(f"Unsupported file extension: {ext}")
     return editor_registry[ext]
+
+def get_summary():
+    full_path = os.path.join(directory, "summary.json")
+    if not os.path.exists(full_path):
+        print(f"File does not exist: {full_path}")
+        return None
+    
+    with open(full_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    cleaned_json = json.dumps(data, separators=(',', ':'))
+    
+    return cleaned_json
 
 def get_file_tree():
     """
@@ -57,6 +71,11 @@ def generate_code_summary_from_file(filename: str):
              Class entries contain nested dicts with class-level categories and members.
     """
     full_path = os.path.join(directory, filename)
+
+    if not os.path.exists(full_path):
+        print(f"File does not exists {full_path}")
+        return
+    
     editor_cls = get_editor_for_file(full_path)
     editor = editor_cls()
     editor.load(full_path)

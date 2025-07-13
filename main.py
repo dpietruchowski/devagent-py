@@ -1,7 +1,7 @@
 from lib.agents.agents import Agent
 import os, subprocess, json
 
-from lib.code_manager.dev_agent import developer, client, generate_code_summary_from_file, get_code_from_file, modify_code_in_file, add_new_code
+from lib.code_manager.dev_agent import developer, client, get_summary, generate_code_summary_from_file, get_code_from_file, modify_code_in_file, add_new_code
 from lib.agents.git_agent import giter
 
 from prompt_toolkit import PromptSession
@@ -68,7 +68,12 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
 def main():
     session = PromptSession(multiline=True)
     init_global_log()
-    print("Will use model:", developer.model)
+    print("Will use model:", developer.model)    
+    
+    summary = get_summary()
+    if summary:
+        developer.set_additional_system_prompt(summary)
+        developer.clear()
 
     while True:
         try:
