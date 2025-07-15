@@ -90,6 +90,10 @@ def main():
                 print_formatted_text(HTML(f'{response}'))
                 continue
 
+            if user_input.strip() == "reset":
+                developer.soft_reset()
+                continue
+
             if user_input.strip() == "switch_model":
                 new_model = "gpt-4o-mini" if developer.model == "gpt-4o" else "gpt-4o"
                 developer.set_model(new_model)
