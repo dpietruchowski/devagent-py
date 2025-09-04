@@ -3,66 +3,136 @@ import json
 import re
 import logging
 
-def parse_param_docstring(docstring):
+import typing
+from typing import get_origin, get_args
+from typing import List, Dict
+
+"""
+Docstring format for automatic parsing:
+
+1. Write the function description first; it can span multiple lines.
+2. For each parameter, start a line with `:param param_name:` followed by its description.
+   - Parameter descriptions can also span multiple lines.
+   - If a parameter is a dictionary, list its keys on separate indented lines as:
+       key: description
+     (all key types are assumed to be string)
+3. Optionally, use `:return:` to describe the return value; return descriptions can also span multiple lines, and dictionary keys can be listed similarly.
+"""
+
+def parse_param_docstring(docstring: str):
     param_descriptions = {}
-    param_pattern = re.compile(r":param (\w+): (.+)")
-    for match in param_pattern.findall(docstring):
-        param_name, description = match
-        param_descriptions[param_name] = description.strip()
+    lines = docstring.splitlines()
+    current_param = None
+
+    for line in lines:
+        line = line.rstrip()
+        param_match = re.match(r'^\s*:param (\w+):\s*(.*)', line)
+        return_match = re.match(r'^\s*:return:', line)
+
+        if param_match:
+            current_param, desc = param_match.groups()
+            param_descriptions[current_param] = desc.strip()
+        elif return_match:
+            current_param = None
+        elif current_param:
+            param_descriptions[current_param] += ';' + line.strip()
+
+    print("PARAM DESCRIPTIONS:", param_descriptions)
     return param_descriptions
 
-def parse_description_docstring(docstring):
+def parse_description_docstring(docstring: str) -> str:
     lines = docstring.strip().splitlines()
     description_lines = []
+
     for line in lines:
-        if re.match(r'^\s*:\w+\s', line):
+        if re.match(r'^\s*:param', line) or re.match(r'^\s*:return', line):
             break
-        print(line)
         description_lines.append(line.strip())
-    return ' '.join(description_lines).strip()
+
+    description = ' '.join([l for l in description_lines if l]).strip()
+    print("FUNCTION DESCRIPTION:", description)
+    return description
+
 
 def python_type_to_string(python_type):
-    if python_type == "str":
-        return "string"
-    return python_type
+    if isinstance(python_type, str):
+        return {"type": {"str": "string", "int": "integer", "float": "number"}.get(python_type, "string")}
+    
+    origin = get_origin(python_type)
+    args = get_args(python_type)
+
+    if python_type is str:
+        return {"type": "string"}
+    if python_type is int:
+        return {"type": "integer"}
+    if python_type is float:
+        return {"type": "number"}
+
+    if origin in (list, typing.List):
+        inner = args[0] if args else str
+        return {"type": "array", "items": python_type_to_string(inner)}
+
+    if origin in (dict, typing.Dict):
+        return {"type": "object"}
+
+    return {"type": "string"}
+
+def extract_dict_properties_and_clean_description(param_desc: str):
+    lines = [l.strip() for l in param_desc.split(';') if l.strip()]
+    main_desc_lines = []
+    properties = {}
+    for line in lines:
+        key_match = re.match(r'^(\w+)\s*:\s*(.+)', line)
+        if key_match:
+            key, desc = key_match.groups()
+            properties[key] = {"type": "string", "description": desc.strip()}
+        else:
+            main_desc_lines.append(line)
+    main_desc = ' '.join(main_desc_lines).strip()
+    return main_desc, properties
 
 def function_to_dict(fun):
-    fun_name = fun.__name__
-    fun_doc = fun.__doc__
+    fun_doc = fun.__doc__ or ""
     sig = inspect.signature(fun)
-    parameters = {
-        "type": "object",
-        "required": [],
-        "properties": {},
-        "additionalProperties": False
-    }
-    param_descriptions = parse_param_docstring(fun_doc)
-    description = parse_description_docstring(fun_doc)
-    for param_name, param in sig.parameters.items():
-        param_info = {
-            "description": param_descriptions.get(param_name, f"No description provided for {param_name}"), 
-        }
-        parameters["required"].append(param_name)
-        if param.annotation is not param.empty:
-            type_annotation = str(param.annotation).replace("<class '", "").replace("'>", "")
-            param_info["type"] = python_type_to_string(type_annotation)
-        else:
-            param_info["type"] = "string"
-        parameters["properties"][param_name] = param_info
+    param_descs = parse_param_docstring(fun_doc)
+    func_description = parse_description_docstring(fun_doc)
+
+    parameters = {"type": "object", "required": [], "properties": {}, "additionalProperties": False}
+
+    for name, param in sig.parameters.items():
+        raw_desc = param_descs.get(name, f"No description provided for {name}")
+        main_desc, props = extract_dict_properties_and_clean_description(raw_desc)
+        parameters["required"].append(name)
+
+        schema = {"type": "string"}
+        origin = get_origin(param.annotation)
+        args = get_args(param.annotation)
+
+        if origin in (list, typing.List) and args:
+            inner_schema = {"type": "string"}
+            if props:
+                inner_schema = {"type": "object", "properties": props, "required": list(props.keys())}
+            schema = {"type": "array", "items": inner_schema}
+
+        elif props:
+            schema = {"type": "object", "properties": props, "required": list(props.keys())}
+
+        parameters["properties"][name] = {"description": main_desc, **schema}
+
     output = {
         "type": "function",
         "function": {
-            "name": fun_name,
-            "description": description,
+            "name": fun.__name__,
+            "description": func_description,
             "strict": True,
             "parameters": parameters
         }
     }
+    print(output)
     return output
 
 def functions_to_dict(functions):
-    functions_info = [function_to_dict(fun) for fun in functions]
-    return functions_info
+    return [function_to_dict(fun) for fun in functions]
 
 # Example function
 def find_file(directory: str, filename: str, recursive: bool = False):
@@ -75,22 +145,27 @@ def find_file(directory: str, filename: str, recursive: bool = False):
     """
     pass
 
+# Example function
+def process_files(files: List[Dict], output_dir: str, overwrite: bool = False):
+    """
+    Processes multiple files and saves the results to the specified output directory.
+
+    :param files: A list of dictionaries with keys describing the input files
+        file_path: Relative path to the input file
+        content: Content of the input file
+    :param output_dir: Directory where the processed files will be saved
+    :param overwrite: Whether to overwrite existing files in the output directory
+    :return: A summary dictionary with processing results
+        processed_count: Number of files successfully processed
+        skipped_count: Number of files skipped
+    """
+    pass
+
 def find_function_by_name(tools, func_name):
     for func in tools:
         if func.__name__ == func_name:
             return func
     return None
-
-def call_function_with_arguments(func, arguments_json):
-        if func:
-            if isinstance(arguments, list):
-                func(*arguments)
-            elif isinstance(arguments, dict):
-                func(**arguments)
-            else:
-                print("Invalid arguments format")
-        else:
-            print("Function not found.")
 
 class Agent:
     max_handle_tool_calls = 5
@@ -117,6 +192,7 @@ class Agent:
 
     def set_additional_system_prompt(self, prompt):
         self.additional_system_prompt = prompt
+        self.update_system_message()
 
     def log_info(self, message):
         logging.info(f"[{self.name}] {message}")
@@ -171,11 +247,21 @@ class Agent:
         self.log_info(f"Assistant response: {response}")
 
         return response
-
-    def clear(self):
+    
+    def combined_system_prompt(self):
         combined_prompt = self.system_prompt
         if hasattr(self, 'additional_system_prompt') and self.additional_system_prompt:
-            combined_prompt += "\n" + self.additional_system_prompt
+            combined_prompt += "\n\n" + self.additional_system_prompt
+        return combined_prompt
+    
+    def update_system_message(self):
+        combined_prompt = self.combined_system_prompt()
+
+        if self.messages and self.messages[0].get("role") == "system":
+            self.messages[0]["content"] = combined_prompt
+
+    def clear(self):
+        combined_prompt = self.combined_system_prompt()
 
         self.messages = [
             {"role": "system", "content": combined_prompt}
